@@ -123,7 +123,7 @@ Este proyecto se libera bajo la **Licencia MIT**. Ver [LICENSE](LICENSE) para mÃ
 
 ---
 
-[![Logo de AB-Tech](https://ab-tech.com.ar/assets/img/logo.png)](https://ab-tech.com.ar)
+<a href="https://ab-tech.com.ar" target="_blank" rel="noopener noreferrer"><img src="https://ab-tech.com.ar/assets/img/logo.png" alt="Logo de AB-Tech" style="max-width: 120px; height: auto;"></a>
 
 **Desarrollado por:** [AB-Tech](https://ab-tech.com.ar) â€” `ollama-web` fue desarrollado con asistencia de IA Qwen3.6.
 
