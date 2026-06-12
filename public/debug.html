@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Stream Debugger</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: monospace; background: #1a1a2e; color: #eee; padding: 20px; }
+        h1 { margin-bottom: 20px; font-size: 1.4em; }
+        .panel { background: #16213e; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #aaa; font-size: 0.9em; }
+        input, select, button { width: 100%; padding: 8px; margin-bottom: 10px; border: none; border-radius: 4px; font-family: monospace; }
+        input, select { background: #0f3460; color: #eee; }
+        button { background: #e94560; color: white; cursor: pointer; font-weight: bold; }
+        button:hover { background: #c73e54; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        textarea { width: 100%; min-height: 80px; background: #0f3460; color: #eee; border: none; border-radius: 4px; padding: 8px; font-family: monospace; resize: vertical; }
+        #output { white-space: pre-wrap; max-height: 500px; overflow-y: auto; background: #000; color: #0f0; padding: 10px; border-radius: 4px; font-size: 0.85em; line-height: 1.4; }
+        .log-line { color: #0f0; }
+        .log-error { color: #f44; }
+        .log-info { color: #0af; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Stream Debugger - Test Interactivo</h1>
+    
+    <div class="panel">
+        <label>URL del servidor Express:</label>
+        <input id="expressUrl" value="http://192.168.0.151/api">
+        
+        <label>Modelo:</label>
+        <select id="modelSelect"><option>Cargando modelos...</option></select>
+        
+        <label>Mensaje:</label>
+        <textarea id="prompt">Di "OK" sin nada más</textarea>
+        
+        <button id="sendBtn" onclick="sendMessage()">📤 Enviar Mensaje</button>
+    </div>
+    
+    <div class="panel">
+        <label>Debug Output (cada chunk raw + parseado):</label>
+        <div id="output"></div>
+    </div>
+
+    <script>
+const output = document.getElementById('output');
+const log = (text, cls = '') => {
+    const line = document.createElement('div');
+    line.className = `log-line ${cls}`;
+    line.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+};
+
+async function loadModels() {
+    try {
+        const resp = await fetch(`${document.getElementById('expressUrl').value}/models`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const models = await resp.json();
+        const sel = document.getElementById('modelSelect');
+        sel.innerHTML = '';
+        if (models.length === 0) {
+            sel.innerHTML = '<option value="">Sin modelos</option>';
+            return;
+        }
+        models.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            if (name.includes('Qwen3')) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    } catch(e) {
+        log(`Error cargando modelos: ${e.message}`, 'log-error');
+    }
+}
+
+async function sendMessage() {
+    const baseUrl = document.getElementById('expressUrl').value;
+    const model = document.getElementById('modelSelect').value;
+    const message = document.getElementById('prompt').value.trim();
+    const btn = document.getElementById('sendBtn');
+    
+    if (!model || !message) {
+        log('Selecciona modelo y escribe mensaje', 'log-error');
+        return;
+    }
+    
+    // Crear conversación
+    const convId = Date.now().toString();
+    try {
+        const resp = await fetch(`${baseUrl}/conversations`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id: convId, name: `Test ${convId}` })
+        });
+        if (!resp.ok) throw new Error('Crear conv fallida');
+    } catch(e) {
+        log(`Error creando conversación: ${e.message}`, 'log-error');
+        return;
+    }
+    
+    btn.disabled = true;
+    output.innerHTML = '';
+    log(`POST /api/chat con modelo: ${model}`);
+    log('Esperando stream...\n', 'log-info');
+    
+    let fullText = '';
+    let chunkNum = 0;
+    let parseOk = 0;
+    let parseErrors = 0;
+    
+    try {
+        const resp = await fetch(`${baseUrl}/chat`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id: convId, model, message })
+        });
+        
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        log(`Response status: ${resp.status}, BodyReader: ${!!resp.body?.getReader}`);
+        
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            
+            if (done) {
+                log('\n[STREAM FINALIZADO]', 'log-info');
+                break;
+            }
+            
+            chunkNum++;
+            fullText += decoder.decode(value, { stream: true });
+            
+            // Dividir por líneas y procesar
+            const lines = fullText.split('\n');
+            const completeLines = lines.slice(0, -1);
+            fullText = lines[lines.length - 1];
+            
+            for (const line of completeLines) {
+                if (!line.trim()) continue;
+                
+                try {
+                    const json = JSON.parse(line);
+                    parseOk++;
+                    
+                    log(`\n[C#${chunkNum}] PARSED OK #${parseOk}`);
+                    log(`  Keys: ${Object.keys(json).join(', ')}`, 'log-info');
+                    log(`  done: ${json.done}`, 'log-info');
+                    
+                    if (typeof json.message === 'string') {
+                        log(`  message (STRING): "${json.message}"`, 'log-line');
+                    } else if (json.message && typeof json.message === 'object') {
+                        log(`  message.content: "${json.message?.content || '(vacío)'}"`, 'log-line');
+                        if (json.message.thinking) {
+                            log(`  message.thinking: "${json.message.thinking.substring(0, 50)}..."`, 'log-line');
+                        }
+                    } else {
+                        log(`  message type: ${typeof json.message}`, 'log-error');
+                    }
+                    
+                } catch(e) {
+                    parseErrors++;
+                    log(`\n[C#${chunkNum}] PARSE ERROR #${parseErrors}`, 'log-error');
+                    log(`  ${e.message}`, 'log-error');
+                    log(`  Line: ${line.substring(0, 80)}`, 'log-error');
+                }
+            }
+        }
+        
+    } catch(e) {
+        log(`\n[ERROR] ${e.message}`, 'log-error');
+    }
+    
+    log(`\n\n[RESUMEN FINAL]`);
+    log(`  Chunks TCP: ${chunkNum}`);
+    log(`  JSONs parseados OK: ${parseOk}`);
+    log(`  Errores de parseo: ${parseErrors}`);
+    
+    btn.disabled = false;
+}
+
+document.addEventListener('DOMContentLoaded', loadModels);
+    </script>
+</body>
+</html>

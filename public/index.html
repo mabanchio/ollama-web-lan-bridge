@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NexusChat AI | Ollama</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='.9em' font-size='55'>🧠</text></svg>" />
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+// Configurar marked para seguridad
+marked.setOptions({
+  breaks: true,        // Convertir \n en <br>
+  gfm: true            // Habilitar GitHub Flavored Markdown (tablas, task lists)
+});
+</script>
+</head>
+<body>
+
+<!-- Mobile Menu Toggle Button (visible only on mobile) -->
+<button id="menu-toggle" class="menu-toggle" aria-label="Abrir menú">☰</button>
+
+<!-- Sidebar Overlay (click to close sidebar) -->
+<div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1>NexusChat AI</h1>
+    <p>Ollama Local</p>
+  </div>
+
+  <button id="new-chat-btn" class="btn-new-chat">
+    <span>＋</span> Nueva Conversación
+  </button>
+
+  <div class="conversations-list">
+    <h3 class="list-title">CONVERSACIONES</h3>
+    <div id="conversation-items" class="items"></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <select id="model-select" class="model-selector">
+      <option value="">Cargando modelos...</option>
+    </select>
+    <button id="clear-all-btn" class="btn-clear">Limpiar todo</button>
+  </div>
+</aside>
+
+<!-- Main Chat Area -->
+<main class="main-chat">
+  <!-- Empty state when no chat selected -->
+  <div id="empty-state" class="empty-state">
+    <div class="empty-icon">🧠</div>
+    <h2>Bienvenido a NexusChat AI</h2>
+    <p>Selecciona o crea una conversación para comenzar a chatear con tu modelo Ollama local.</p>
+    <button id="create-first-btn" class="btn-primary">＋ Nueva Conversación</button>
+  </div>
+
+  <!-- Active chat (hidden when no chat selected) -->
+  <div id="active-chat" class="active-chat hidden">
+    <header class="chat-header">
+      <h2 id="chat-title">Conversación</h2>
+      <span id="chat-model-badge" class="model-badge"></span>
+    </header>
+
+    <div id="messages-container" class="messages-container">
+      <!-- Messages will be appended here -->
+    </div>
+
+    <div class="input-area">
+      <textarea id="prompt" rows="1" placeholder="Escribe tu mensaje..." autocomplete="off"></textarea>
+      <button id="send-btn" class="btn-send" title="Enviar (Enter)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22,2 15,22 11,13 2,9"></polygon>
+        </svg>
+      </button>
+    </div>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
